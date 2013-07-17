@@ -3,8 +3,8 @@
 ********************************************************
 TinyButStrong - Template Engine for Pro and Beginners
 ------------------------
-Version  : 3.8.1 for PHP 5
-Date     : 2012-08-15
+Version  : 3.8.2 for PHP 5
+Date     : 2013-04-20
 Web site : http://www.tinybutstrong.com
 Author   : http://www.tinybutstrong.com/onlyyou.html
 ********************************************************
@@ -534,7 +534,7 @@ public $ObjectRef = false;
 public $NoErr = false;
 public $Assigned = array();
 // Undocumented (can change at any version)
-public $Version = '3.8.1';
+public $Version = '3.8.2';
 public $Charset = '';
 public $TurboBlock = true;
 public $VarPrefix = '';
@@ -587,7 +587,7 @@ function __construct($Options=null,$VarPrefix='',$FctPrefix='') {
 			}
 			if ($Err) $this->meth_Misc_Alert('with clsTinyButStrong() function','value \''.$Chrs.'\' is a bad tag delimitor definition.');
 		}
-	}
+	} 
 
 	// Set options
 	$this->VarRef =& $GLOBALS;
@@ -599,7 +599,7 @@ function __construct($Options=null,$VarPrefix='',$FctPrefix='') {
 	if (!isset($_TBS_UserFctLst)) $_TBS_UserFctLst = array();
 	if (!isset($_TBS_BlockAlias)) $_TBS_BlockAlias = array();
 	$this->_UserFctLst = &$_TBS_UserFctLst;
-
+	
 	// Auto-installing plug-ins
 	if (isset($_TBS_AutoInstallPlugIns)) foreach ($_TBS_AutoInstallPlugIns as $pi) $this->PlugIn(TBS_INSTALL,$pi);
 
@@ -649,6 +649,7 @@ function SetOption($o, $v=false, $d=false) {
 	if (array_key_exists('block_alias',$o)) self::f_Misc_UpdateArray($GLOBALS['_TBS_BlockAlias'], false, $o['block_alias'], $d);
 	if (array_key_exists('include_path',$o)) self::f_Misc_UpdateArray($this->IncludePath, true, $o['include_path'], $d);
 	if (isset($o['render'])) $this->Render = $o['render'];
+	if (isset($o['methods_allowed'])) $this->MethodsAllowed = $o['methods_allowed'];
 }
 
 function GetOption($o) {
@@ -678,6 +679,7 @@ function GetOption($o) {
 	}
 	if ($o==='include_path') return $this->IncludePath;
 	if ($o==='render') return $this->Render;
+	if ($o==='methods_allowed') return $this->MethodsAllowed;
 	return $this->meth_Misc_Alert('with GetOption() method','option \''.$o.'\' is not supported.');;
 }
 
@@ -1015,11 +1017,11 @@ function &meth_Locator_SectionNewBDef(&$LocR,$BlockName,$Txt,$PrmLst,$Cache) {
 		$PrevEnd = -1;
 		$PrevIsAMF = false; // AMF means Attribute Moved Forward
 		while ($Loc = $this->meth_Locator_FindTbs($Txt,$BlockName,$Pos,'.')) {
-
+			
 			$IsAMF = false;
 			$IsAtt = false;
 			$NewIdx = false;
-
+			
 			if ($pi) {
 				$ArgLst[1] = &$Loc;
 				$this->meth_Plugin_RunAll($this->_piOnCacheField,$ArgLst);
@@ -1122,7 +1124,7 @@ function meth_Locator_SectionAddGrp(&$LocR,$BlockName,&$BDef,$Type,$Field,$Prm) 
 
 	// Save sub items in a structure near to Locator.
 	$Field0 = $Field;
-	if (strpos($Field,$this->_ChrOpen)===false) $Field = $this->_ChrOpen.$BlockName.'.'.$Field.$this->_ChrClose;
+	if (strpos($Field,$this->_ChrOpen)===false) $Field = $this->_ChrOpen.$BlockName.'.'.$Field.';tbstype='.$Prm.$this->_ChrClose; // tbstype is an internal parameter for catching errors
 	$BDef->FDef = &$this->meth_Locator_SectionNewBDef($LocR,$BlockName,$Field,array(),true);
 	if ($BDef->FDef->LocNbr==0)	$this->meth_Misc_Alert('Parameter '.$Prm,'The value \''.$Field0.'\' is unvalide for this parameter.');
 
@@ -1171,7 +1173,7 @@ function meth_Locator_Replace(&$Txt,&$Loc,&$Value,$SubStart) {
 						$x = call_user_func_array(array(&$Value,$x),$ArgLst);
 					} else {
 						if (!isset($Loc->PrmLst['noerr'])) $this->meth_Misc_Alert($Loc,'\''.$x.'\' is a method and the current TBS settings do not allow to call methods on automatic fields.',true);
-						$x = '';
+						$x = '';	
 					}
 				} elseif (property_exists($Value,$x)) {
 					$x = &$Value->$x;
@@ -1660,7 +1662,7 @@ function meth_Locator_PartAndRename(&$CurrVal, &$PrmLst) {
 
 	// Rename or delete TBS tags names
 	if (isset($PrmLst['rename'])) {
-
+	
 		$Replace = $PrmLst['rename'];
 
 		if (is_string($Replace)) $Replace = explode(',',$Replace);
@@ -1683,7 +1685,7 @@ function meth_Locator_PartAndRename(&$CurrVal, &$PrmLst) {
 					}
 				}
 			}
-		}
+		} 
 
 	}
 
@@ -2661,7 +2663,13 @@ function meth_Misc_Alert($Src,$Msg,$NoErrMsg=false,$SrcType=false) {
 	}
 	if (!is_string($Src)) {
 		if ($SrcType===false) $SrcType='in field';
-		$Src = $SrcType.' '.$this->_ChrOpen.$Src->FullName.'...'.$this->_ChrClose;
+		if (isset($Src->PrmLst['tbstype'])) {
+			$Msg = 'Column \''.$Src->SubName.'\' is expected but missing in the current record.';
+			$Src = 'Parameter \''.$Src->PrmLst['tbstype'].'='.$Src->SubName.'\'';
+			$NoErrMsg = false;
+		} else {
+			$Src = $SrcType.' '.$this->_ChrOpen.$Src->FullName.'...'.$this->_ChrClose;
+		}
 	}
 	$x = $t[0].'TinyButStrong Error'.$t[1].' '.$Src.': '.$Msg;
 	if ($NoErrMsg) $x = $x.' '.$t[2].'This message can be cancelled using parameter \'noerr\'.'.$t[3];
@@ -2975,7 +2983,7 @@ function meth_PlugIn_SetEvent($PlugInId, $Event, $NewRef='') {
 		unset($PropRef[$PlugInId]);
 		return true;
 	}
-
+	
 	// Prepare the reference to be called
 	$PiRef = &$this->_PlugIns[$PlugInId];
 	if (is_object($PiRef)) {
@@ -3000,7 +3008,7 @@ function meth_PlugIn_SetEvent($PlugInId, $Event, $NewRef='') {
 	case 'OnFormat': $this->_piOnFrm_Ok = true; break;
 	default: $this->_PlugIns_Ok = true; break;
 	}
-
+		
 	return true;
 
 }
@@ -3423,7 +3431,7 @@ static function f_Misc_GetFile(&$Res, &$File, $LastFile='', $IncludePath=false, 
 // Load the content of a file into the text variable.
 
 	$Res = '';
-	$fd = self::f_Misc_TryFile($File, false);
+	$fd = self::f_Misc_TryFile($File, false); 
 	if ($fd===false) {
 		if (is_array($IncludePath)) {
 			foreach ($IncludePath as $d) {
@@ -3755,7 +3763,7 @@ static function f_Loc_EnlargeToTag(&$Txt,&$Loc,$TagStr,$RetInnerSrc) {
 			$i++;
 		}
 	}
-
+	
 	$TagMax = $i-1;
 
 	// Find tags that embeds the locator
@@ -3765,7 +3773,7 @@ static function f_Loc_EnlargeToTag(&$Txt,&$Loc,$TagStr,$RetInnerSrc) {
 	$TagO = self::f_Loc_Enlarge_Find($Txt,$TagLst[$Ref],$TagFct[$Ref],$Loc->PosBeg-1,false,$LevelStop);
 	if ($TagO===false) return false;
 	$PosBeg = $TagO->PosBeg;
-	$LevelStop += -$TagO->RightLevel; // RightLevel=1 only if the tag is single and embeds $Loc, otherwise it is 0
+	$LevelStop += -$TagO->RightLevel; // RightLevel=1 only if the tag is single and embeds $Loc, otherwise it is 0 
 	if ($LevelStop>0) {
 		$TagC = self::f_Loc_Enlarge_Find($Txt,$TagLst[$Ref],$TagFct[$Ref],$Loc->PosEnd+1,true,-$LevelStop);
 		if ($TagC==false) return false;
@@ -3818,7 +3826,7 @@ static function f_Loc_Enlarge_Find($Txt, $Tag, $Fct, $Pos, $Forward, $LevelStop)
 			return false;
 		} else {
 			return (object) array('PosBeg'=>$p, 'PosEnd'=>$p, 'RightLevel'=> 0); // it's a trick
-		}
+		}	
 	}
 }
 
@@ -3882,7 +3890,7 @@ static function f_Xml_AttFind(&$Txt,&$Loc,$Move=false,$AttDelim=false) {
 		}
 		if ($Att==='.') return false;
 	}
-
+		
 	$AttLC = strtolower($Att);
 	if (isset($LocO->PrmLst[$AttLC])) {
 		// The attribute is existing
@@ -3905,7 +3913,7 @@ static function f_Xml_AttFind(&$Txt,&$Loc,$Move=false,$AttDelim=false) {
 		$Loc->AttBeg = false;
 		$Loc->AttName = $Att;
 	}
-
+	
 	// Search for a delimitor
 	if (($Loc->AttDelimCnt==0) and (isset($LocO->PrmPos))) {
 		foreach ($LocO->PrmPos as $p) {
@@ -4041,7 +4049,7 @@ static function f_Xml_GetPart(&$Txt, $TagLst, $AllIfNothing=false) {
 
 	$PosOut = strlen($Txt);
 	$Pos = 0;
-
+	
 	// Optimized search for all tag types
 	do {
 
@@ -4091,7 +4099,7 @@ static function f_Xml_GetPart(&$Txt, $TagLst, $AllIfNothing=false) {
 		}
 
 	} while ($TagMin!==false);
-
+	
 	if ($AllIfNothing and $nothing) return $Txt;
 	return $x;
 
@@ -4157,7 +4165,7 @@ $Opening is used only when $LevelStop=false.
 	$TagL = strlen($Tag);
 	$TagClosingL = strlen($TagClosing);
 	$RightLevel = 0;
-
+	
 	do {
 
 		// Look for the next tag def
